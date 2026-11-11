@@ -6,27 +6,32 @@
 #ifndef _FCITX_LIBIME_CORE_LRU_H_
 #define _FCITX_LIBIME_CORE_LRU_H_
 
+#include <concepts>
 #include <cstddef>
+#include <functional>
 #include <list>
+#include <unordered_map>
 #include <utility>
-#include <boost/container_hash/hash.hpp>
-#include <boost/unordered_map.hpp>
 
 namespace libime {
 
 // A simple LRU cache.
-template <typename K, typename V, typename H = boost::hash<K>>
+template <typename K, typename V, typename H = std::hash<K>,
+          typename E = std::equal_to<K>>
 class LRUCache {
 public:
     using key_type = K;
     using value_type = V;
-    // we use boost's unordered_map is for the heterogeneous lookup
-    // functionality.
     using dict_type =
-        boost::unordered_map<K, std::pair<V, typename std::list<K>::iterator>,
-                             H>;
+        std::unordered_map<K, std::pair<V, typename std::list<K>::iterator>, H,
+                           E>;
 
-    LRUCache(size_t sz = 80) : sz_(sz) {}
+    LRUCache(const H &hash, const E &equal, size_t sz = 80)
+        : dict_(0, hash, equal), sz_(sz) {}
+
+    LRUCache(size_t sz = 80)
+        requires(std::default_initializable<H> && std::default_initializable<E>)
+        : LRUCache(H(), E(), sz) {}
 
     size_t size() const { return dict_.size(); }
 
@@ -71,11 +76,9 @@ public:
         return find_helper(i);
     }
 
-    template <class CompatibleKey, class CompatibleHash,
-              class CompatiblePredicate>
-    value_type *find(CompatibleKey const &k, CompatibleHash const &h,
-                     CompatiblePredicate const &p) {
-        return find_helper(dict_.find(k, h, p));
+    template <typename CompatibleKey>
+    value_type *find(const CompatibleKey &key) {
+        return find_helper(dict_.find(key));
     }
 
     void clear() {

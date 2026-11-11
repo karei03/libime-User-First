@@ -128,6 +128,21 @@ void testOverflow() {
     }
 }
 
+void testRetention() {
+    using namespace libime;
+    HistoryBigram history;
+    history.add({"previous", "remember"});
+    for (auto i : std::views::iota(0, 128 + 8192)) {
+        history.add({std::to_string(i)});
+    }
+
+    // Cumulative history stores one count for each input and does not apply
+    // age-based decay or pool weights.
+    FCITX_ASSERT(history.rawUnigramFrequency({"remember", ""}) == 1);
+    FCITX_ASSERT(history.rawBigramFrequency({"previous", ""},
+                                            {"remember", ""}) == 1);
+}
+
 void testPredict() {
     using namespace libime;
     HistoryBigram history;
@@ -631,6 +646,7 @@ void testLegacyFormats() {
 int main() {
     testBasic();
     testOverflow();
+    testRetention();
     testPredict();
     testSaveAndLoad();
     testSaveAndLoadText();
